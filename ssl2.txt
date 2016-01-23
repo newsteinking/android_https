@@ -1,0 +1,211 @@
+keytool -genkey -alias jeusssl -keyalg RSA -validity 7 -keystore C:\TmaxSoft\JEUS6.0\config\Hyper2-WAS\keystore
+
+=========
+linux
+http://zetawiki.com/wiki/%EB%A6%AC%EB%88%85%EC%8A%A4_%EA%B0%9C%EC%9D%B8%EC%84%9C%EB%AA%85_SSL_%EC%9D%B8%EC%A6%9D%EC%84%9C_%EC%83%9D%EC%84%B1
+
+openssl genrsa -des3 -out server.key 2048
+openssl genrsa -des3 -out client.key 2048
+
+openssl req -new -key server.key -out server.csr
+openssl req -new -key client.key -out client.csr
+
+암호화키 패스워드 제거
+
+cp server.key server.key.org
+cp client.key client.key.org
+openssl rsa -in server.key.org -out server.key
+
+openssl rsa -in client.key.org -out client.key
+
+
+openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+
+openssl x509 -req -days 10950 -in server.csr -signkey server.key -out server.crt
+
+openssl x509 -req -days 10950 -in client.csr -signkey client.key -out client.crt
+
+
+*.key+*.crt==>*.pem
+
+$ openssl pkcs12 -export -in server.crt -inkey server.key -out server.p12
+
+ client cert key with Server
+openssl pkcs12 -export -in client.crt -inkey client.key -out client-cert.p12
+
+
+openssl pkcs12 -export -in server.crt -inkey server.key -out client-cert.p12
+
+
+
+$ openssl pkcs12 -in server.p12 -nodes -out server.pem
+
+*crt-->der
+
+openssl x509 -in client.crt -out client.der -outform DER
+
+
+openssl x509 -in ktds.crt -out server.der -outform DER
+
+----------------------------------------
+openssl genrsa -des3 -out ktds.key 2048
+
+openssl req -new -key ktds.key -out ktds.csr
+
+암호화키 패스워드 제거
+
+cp ktds.key ktds.key.org
+openssl rsa -in ktds.key.org -out ktds.key
+
+
+openssl x509 -req -days 365 -in ktds.csr -signkey ktds.key -out ktds.crt
+
+openssl x509 -req -days 10950 -in ktds.csr -signkey ktds.key -out ktds.crt
+
+*.key+*.crt==>*.pem
+
+$ openssl pkcs12 -export -in ktds.crt -inkey ktds.key -out ktds.p12
+$ openssl pkcs12 -in ktds.p12 -nodes -out ktds.pem
+============================================================================================================
+<LGCNS Server Key PEM & BKS key>
+openssl genrsa -des3 -out lgcns.key 2048
+
+openssl req -new -key lgcns.key -out lgcns.csr
+
+암호화키 패스워드 제거
+cp lgcns.key lgcns.key.org
+
+openssl rsa -in lgcns.key.org -out lgcns.key
+
+
+openssl x509 -req -days 10950 -in lgcns.csr -signkey lgcns.key -out lgcns.crt
+
+
+*.key+*.crt==>*.p12
+
+$ openssl pkcs12 -export -in lgcns.crt -inkey lgcns.key -out lgcns.p12
+
+*.p12==>*.pem
+
+$ openssl pkcs12 -in lgcns.p12 -nodes -out lgcns.pem
+
+*crt-->der
+
+openssl x509 -in lgcns.crt -out lgcns.der -outform DER
+
+
+*BKS
+./importcert.sh lgcns.pem
+
+
+
+
+=========================================================================================================
+인증서 인코딩 포멧 변경
+- openssl 이 생성하는 인증서의 인코딩은 발급 시 옵션을 주지 않으면 디폴트가 PEM (base64 encoding)이다.
+- Java 등에서 사용하기 위한 DER 포맷(바이너리)으로 변경은 다음과 같이 수행한다.
+   : openssl x509 -in ca.crt -out ca.der -outform DER
+
+openssl x509 -in server.crt -out server.der -outform DER
+openssl x509 -in ktds.crt -out server.der -outform DER
+=========================================================================
+CA 개인키 생성
+openssl genrsa -des3 -out ca.key 1024
+
+CA csr 키 생성
+openssl req -new -key ca.key -out ca.csr
+
+Root CA 인증서 생성
+openssl x509 -req -days 1280 -in ca.csr -signkey ca.key -out ca.crt
+
+개인키에서 패스워드 삭제하기
+openssl rsa -in ca.key -out ca_key.pem
+
+------------------------------------------------------------------------------------------
+
+Server 개인키 생성
+openssl genrsa -des3 -out server.key 1024
+
+Server csr 키 생성
+openssl req -new -key server.key -out server.csr
+
+Server 인증서 생성
+openssl x509 -req -in server.csr -out server.crt -signkey server.key -CA ca.crt -CAkey
+
+ca.key -CAcreateserial -days 365
+
+개인키에서 패스워드 삭제하기
+openssl rsa -in server.key -out server_key.pem
+
+------------------------------------------------------------------------------------------
+
+Client 개인키 생성
+openssl genrsa -des3 -out client.key 1024
+
+Client csr 키 생성
+openssl req -new -key client.key -out client.csr
+
+Client 인증서 생성
+openssl x509 -req -in client.csr -out client.crt -signkey client.key -CA server.crt -CAkey
+
+server.key -CAcreateserial -days 365
+
+개인키에서 패스워드 삭제하기
+openssl rsa -in server.key -out server_key.pem
+
+------------------------------------------------------------------------------------------
+
+crt->der 포맷변경
+openssl x509 -in ca.crt -out ca.der -outform DER
+
+pem->der 포맷변경
+openssl x509 -in demoCA/cacert.pem -outform DER -out cacert.der
+
+der->pem 포맷변경
+x509 -in cert.cer -inform DER -out cert.pem -outform PEM
+
+인증서 확인
+openssl x509 -noout -text -in client.crt
+
+비밀키 보기
+openssl rsa -noout -text -in server.key
+
+openssl 설치완료 확인
+httpd -t
+
+pfx 변환
+openssl pkcs12 -export -in client.crt -inkey client.key -certfile ca.crt -out bundle.p12
+
+pfx에서 키 추출
+OpenSSL> pkcs12 -in filename.pfx -nocerts -out key.pem
+
+pfx에서 인증서 추출
+OpenSSL> pkcs12 -in filename.pfx -clcerts -nokeys -out cert.pem
+
+라디우스 실행
+/usr/local/sbin/radiuse -x
+
+------------------------------------------------------------------------------------------
+
+인증에 사용될 파일 6개
+ca_key.pem ca.crt
+server_key.pem server.crt
+client_key.pem client.crt
+====================================================
+http://blog.antoine.li/2010/10/22/android-trusting-ssl-certificates/
+
+keytool -importcert -v -trustcacerts -file "c:\BKS\mycrtfile.crt" -alias certificate -keystore "c:\BKS\keystore.bks" -provider org.bouncycastle.jce.provider.BouncyCastleProvider -providerpath "c:\BKS\prov-jdk15on-146.jar" -storetype BKS -storepass mysecret
+
+
+
+keytool -genkey -alias server -keyalg RSA -keystore D:\KT\6.SSL\Keytool\server.keystore
+
+adb kill-server
+adb start-server
+
+https://github.com/nelenkov/custom-cert-https
+
+
+
+
+
